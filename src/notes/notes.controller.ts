@@ -1,5 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Put,
+  Post,
+} from '@nestjs/common';
 import { UpdateNoteDto } from './note-dto/update-note.dto';
+import { CreateNoteDto } from './note-dto/create-note.dto';
 import { NotesService } from './notes.service';
 
 @Controller('notes')
@@ -9,6 +18,11 @@ export class NotesController {
   @Get()
   getAllNotes() {
     return this.notesService.getAllNotes();
+  }
+
+  @Post('create')
+  createNote(@Body() createNoteDto: CreateNoteDto) {
+    return this.notesService.createNote(createNoteDto);
   }
 
   @Get(':id')

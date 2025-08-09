@@ -22,7 +22,7 @@ export class NotesService {
     createDto: CreateNoteDto,
   ): Promise<{ data: NoteDocument; message: string }> {
     try {
-      const { title, content } = createDto;
+      const { title, content, userId } = createDto;
 
       const findTitle = await this.noteModel.findOne({
         title: new RegExp(`^${title}$`, 'i'),
@@ -35,6 +35,7 @@ export class NotesService {
       const note = await this.noteModel.create({
         title: title,
         content: content,
+        userId: new mongoose.Types.ObjectId(userId),
       });
 
       return { data: note, message: 'Note successfully created 😍' };

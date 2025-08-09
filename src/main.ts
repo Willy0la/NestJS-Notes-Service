@@ -17,7 +17,5 @@ async function bootstrap() {
 
   console.log('process.env.DB:', process.env.DB);
   console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
-
-  app.setGlobalPrefix('note-app');
 }
 void bootstrap();
