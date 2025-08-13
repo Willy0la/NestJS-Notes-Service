@@ -101,6 +101,12 @@ export class UsersService {
     updateUser: UpdateUserDto,
   ): Promise<UserDocument> {
     try {
+      const cacheKey = generateUserKey(id);
+      const cachedUser = await this.redis.get(cacheKey);
+      if (cachedUser) {
+        this.logger.log(`User with id ${id} found in cache`);
+        return JSON.parse(cachedUser) as UserDocument;
+      }
       if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new BadRequestException(`Invalid user ID: ${id}`);
       }
@@ -117,7 +123,19 @@ export class UsersService {
       if (!updated) {
         throw new BadRequestException('Unable to update user');
       }
-
+      const updatedPlain = updated.toObject();
+      this.logger.debug(`Cache miss → ${cacheKey}`);
+      // Cache the updated user data with a TTL of 3600 seconds
+      await this.redis.set(
+        cacheKey,
+        JSON.stringify(updatedPlain),
+        'EX',
+        CACHE_TTL_NOTES,
+      );
+      this.logger.debug(`User with id ${id} cached successfully`);
+      this.logger.log(`Updated user with id ${id} successfully`);
+      updated.password = 'hidden'; // Hide password in response
+      this.logger.log(`User with id ${id} successfully updated 😍`);
       return updated;
     } catch (error) {
       console.error(error);

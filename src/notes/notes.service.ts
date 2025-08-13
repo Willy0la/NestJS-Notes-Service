@@ -66,6 +66,15 @@ export class NotesService {
     const { title, content } = updateDto;
 
     try {
+      const cacheKey = generateNoteKey(id);
+      const cachedNote = await this.redis.get(cacheKey);
+      if (cachedNote) {
+        this.logger.log(`Note with id ${id} found in cache`);
+        return JSON.parse(cachedNote) as {
+          data: NoteDocument;
+          message: string;
+        };
+      }
       if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new BadRequestException({ message: 'invalid / bad ID format' });
       }
@@ -88,6 +97,20 @@ export class NotesService {
         throw new NotFoundException('Note not found or update failed');
       }
 
+      const notePlain = updatedNote.toObject();
+      this.logger.debug(`Cache miss → ${cacheKey}`);
+      // Cache the updated note data with a TTL of 3600 seconds
+      await this.redis.set(
+        cacheKey,
+        JSON.stringify({
+          data: notePlain,
+          message: 'Note successfully updated 😍',
+        }),
+        'EX',
+        CACHE_TTL_NOTES,
+      );
+      this.logger.debug(`Note with id ${id} cached successfully`);
+      this.logger.log(`Note with id ${id} successfully updated 😍  `);
       return {
         message: 'Note successfully updated 😍',
         data: updatedNote as NoteDocument,
