@@ -3,11 +3,13 @@ import { NotesController } from './notes.controller';
 import { NotesService } from './notes.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Note, NoteSchema } from '../users/schema/note.schema';
+import { RedisModule } from 'src/redis/redis.module';
 //import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Note.name, schema: NoteSchema }]),
+    RedisModule,
   ],
   controllers: [NotesController],
   providers: [NotesService],

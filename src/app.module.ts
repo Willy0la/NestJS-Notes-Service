@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotesModule } from './notes/notes.module';
 import * as Joi from 'joi';
 import { MongooseModule } from '@nestjs/mongoose';
+import { RedisModule } from './redis/redis.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -34,6 +35,7 @@ import { MongooseModule } from '@nestjs/mongoose';
     }),
     UsersModule,
     NotesModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

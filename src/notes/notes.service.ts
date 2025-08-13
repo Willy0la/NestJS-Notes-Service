@@ -11,13 +11,25 @@ import { Note, NoteDocument } from 'src/users/schema/note.schema';
 import { CreateNoteDto } from './note-dto/create-note.dto';
 import mongoose, { Model } from 'mongoose';
 import { UpdateNoteDto } from './note-dto/update-note.dto';
+import Redis from 'ioredis';
+import { RedisService } from 'src/redis/redis.service';
+import { generateNoteKey } from 'src/utils/utils';
+import { CACHE_TTL_NOTES } from './notes.constant';
 
 @Injectable()
 export class NotesService {
+  private readonly redis: Redis;
   private readonly logger = new Logger(NotesService.name);
   constructor(
+    private readonly redisClient: RedisService,
     @InjectModel(Note.name) private readonly noteModel: Model<NoteDocument>,
-  ) {}
+  ) {
+    this.redis = this.redisClient.getClient();
+    this.logger.log('Connected to Redis');
+    this.redis.on('error', (err) => {
+      this.logger.error('Redis connection error', err);
+    });
+  }
   async createNote(
     createDto: CreateNoteDto,
   ): Promise<{ data: NoteDocument; message: string }> {
@@ -102,8 +114,18 @@ export class NotesService {
 
   async getNoteById(
     id: string,
-  ): Promise<{ data: NoteDocument; message: string }> {
+  ): Promise<Partial<{ data: NoteDocument; message: string }>> {
     try {
+      const cacheKey = generateNoteKey(id);
+      const cachedNote = await this.redis.get(cacheKey);
+
+      if (cachedNote) {
+        this.logger.log(`Note with id ${id} found in cache`);
+        return JSON.parse(cachedNote) as {
+          data: NoteDocument;
+          message: string;
+        };
+      }
       if (!mongoose.Types.ObjectId.isValid(id)) {
         throw new BadRequestException({ message: 'invalid / bad ID format' });
       }
@@ -113,6 +135,20 @@ export class NotesService {
         throw new NotFoundException('User Not found');
       }
 
+      const notePlain = note.toObject();
+      this.logger.debug(`Cache miss → ${cacheKey}`);
+      // Cache the note data with a TTL of 3600 seconds
+      await this.redis.set(
+        cacheKey,
+        JSON.stringify({
+          data: notePlain,
+          message: 'Fetched note successfully 😍',
+        }),
+        'EX',
+        CACHE_TTL_NOTES,
+      );
+      this.logger.debug(`Note with id ${id} cached successfully`);
+      this.logger.log(`Fetched note with id ${id} successfully 😍  `);
       return { data: note, message: 'Fetched note successfully 😍' };
     } catch (error) {
       this.logger.warn('Unable to get your note, try again😉', error);

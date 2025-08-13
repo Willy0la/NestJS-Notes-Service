@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -13,28 +12,49 @@ import { CreateUserDto } from './user-dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { LoginUserDto } from './user-dto/login-user.dto';
 import { UpdateUserDto } from './user-dto/update-user.dto';
+import { Redis } from 'ioredis';
+import { Logger } from '@nestjs/common';
+import { RedisService } from '../redis/redis.service';
+import { generateUserKey } from 'src/utils/utils';
+import { CACHE_TTL_NOTES } from 'src/notes/notes.constant';
 
 @Injectable()
 export class UsersService {
+  private readonly redis: Redis;
+  private readonly logger = new Logger(UsersService.name);
   constructor(
     @InjectModel(UserModel.name)
-    private readonly userModel: Model<UserDocument>,
-  ) {}
+    private readonly userModel: Model<UserDocument>, // ✅ user model
+    private readonly redisClient: RedisService, // ✅ RedisService
+  ) {
+    this.redis = this.redisClient.getClient();
+    this.logger.log('Connected to Redis');
+    this.redis.on('error', (err) => {
+      this.logger.error('Redis connection error', err);
+    });
+  }
 
   async registerUser(createUser: CreateUserDto): Promise<UserDocument> {
     try {
       const { username, email, name, password } = createUser;
+      if (!createUser.username || !createUser.email || !createUser.password) {
+        throw new BadRequestException(
+          'Kindly input your username, email and password',
+        );
+      }
+      if (createUser.password.length < 6) {
+        throw new BadRequestException(
+          'Password must be at least 6 characters long',
+        );
+      }
+      if (!createUser.email.includes('@')) {
+        throw new BadRequestException('Please provide a valid email address');
+      }
       const user = await this.userModel.findOne({ email });
       if (user) {
         throw new BadRequestException(
           'User with this email already exists. Please log in or use a different email',
         );
-      }
-      const existingUsername = await this.userModel
-        .findOne({ username })
-        .exec();
-      if (existingUsername) {
-        throw new ConflictException('Username is already taken');
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
@@ -115,8 +135,14 @@ export class UsersService {
     }
   }
 
-  async getUserById(id: string): Promise<UserDocument> {
+  async getUserById(id: string): Promise<Partial<UserDocument>> {
     try {
+      const cacheKey = generateUserKey(id);
+      const cachedUser = await this.redis.get(cacheKey);
+      if (cachedUser) {
+        this.logger.log(`User with id ${id} found in cache`);
+        return JSON.parse(cachedUser) as UserDocument;
+      }
       const user = await this.userModel.findById(id, { password: 0 }).exec();
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -125,8 +151,19 @@ export class UsersService {
       if (!user) {
         throw new NotFoundException(`User with id: ${id} not found`);
       }
+      const userPlain = user.toObject();
 
-      return user;
+      this.logger.debug(`Cache miss → ${cacheKey}`);
+      // Cache the user data with a TTL of 3600 seconds
+
+      await this.redis.set(
+        cacheKey,
+        JSON.stringify(userPlain),
+        'EX',
+        CACHE_TTL_NOTES,
+      );
+      this.logger.debug(`User with id ${id} cached successfully`);
+      return userPlain;
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException(`Unable to get user by id`);
