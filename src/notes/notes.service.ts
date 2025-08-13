@@ -59,68 +59,37 @@ export class NotesService {
     }
   }
 
-  async updateNote(
-    id: string,
-    updateDto: UpdateNoteDto,
-  ): Promise<{ data: NoteDocument; message: string }> {
-    const { title, content } = updateDto;
-
-    try {
-      const cacheKey = generateNoteKey(id);
-      const cachedNote = await this.redis.get(cacheKey);
-      if (cachedNote) {
-        this.logger.log(`Note with id ${id} found in cache`);
-        return JSON.parse(cachedNote) as {
-          data: NoteDocument;
-          message: string;
-        };
-      }
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new BadRequestException({ message: 'invalid / bad ID format' });
-      }
-      if (!title && !content) {
-        throw new ImATeapotException(
-          'haha, kindly tell us the title and the content😂😂',
-        );
-      }
-
-      const updatedNote = await this.noteModel.findByIdAndUpdate(
-        id,
-        updateDto,
-        {
-          new: true,
-          runValidators: true,
-        },
-      );
-
-      if (!updatedNote) {
-        throw new NotFoundException('Note not found or update failed');
-      }
-
-      const notePlain = updatedNote.toObject();
-      this.logger.debug(`Cache miss → ${cacheKey}`);
-      // Cache the updated note data with a TTL of 3600 seconds
-      await this.redis.set(
-        cacheKey,
-        JSON.stringify({
-          data: notePlain,
-          message: 'Note successfully updated 😍',
-        }),
-        'EX',
-        CACHE_TTL_NOTES,
-      );
-      this.logger.debug(`Note with id ${id} cached successfully`);
-      this.logger.log(`Note with id ${id} successfully updated 😍  `);
-      return {
-        message: 'Note successfully updated 😍',
-        data: updatedNote as NoteDocument,
-      };
-    } catch (error) {
-      this.logger.warn('Unable to update note, try again😉', error);
-      throw new InternalServerErrorException(
-        'Unable to update note, try again😉',
-      );
+  async updateNote(id: string, updateDto: UpdateNoteDto) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid ID');
     }
+
+    // Clear cache before update (optional)
+    const cacheKey = generateNoteKey(id);
+    await this.redis.del(cacheKey);
+
+    if (!updateDto.title && !updateDto.content) {
+      throw new BadRequestException('Provide title or content to update');
+    }
+
+    const updatedNote = await this.noteModel.findByIdAndUpdate(id, updateDto, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedNote) throw new NotFoundException('Note not found');
+
+    const response = { data: updatedNote.toObject(), message: 'Note updated' };
+
+    // Cache the updated note
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(response),
+      'EX',
+      CACHE_TTL_NOTES,
+    );
+
+    return response;
   }
 
   async getAllNotes(): Promise<{ data: NoteDocument[]; message: string }> {
