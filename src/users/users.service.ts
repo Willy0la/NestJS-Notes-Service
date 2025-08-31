@@ -24,8 +24,8 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
   constructor(
     @InjectModel(UserModel.name)
-    private readonly userModel: Model<UserDocument>, // ✅ user model
-    private readonly redisClient: RedisService, // ✅ RedisService
+    private readonly userModel: Model<UserDocument>,
+    private readonly redisClient: RedisService,
   ) {
     this.redis = this.redisClient.getClient();
     this.logger.log('Connected to Redis');
@@ -34,22 +34,12 @@ export class UsersService {
     });
   }
 
-  async registerUser(createUser: CreateUserDto): Promise<UserDocument> {
+  async registerUser(
+    createUser: CreateUserDto,
+  ): Promise<{ data: UserDocument; message: string; success: boolean }> {
     try {
       const { username, email, name, password } = createUser;
-      if (!createUser.username || !createUser.email || !createUser.password) {
-        throw new BadRequestException(
-          'Kindly input your username, email and password',
-        );
-      }
-      if (createUser.password.length < 6) {
-        throw new BadRequestException(
-          'Password must be at least 6 characters long',
-        );
-      }
-      if (!createUser.email.includes('@')) {
-        throw new BadRequestException('Please provide a valid email address');
-      }
+
       const user = await this.userModel.findOne({ email });
       if (user) {
         throw new BadRequestException(
@@ -58,12 +48,20 @@ export class UsersService {
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
-      return await this.userModel.create({
+      const newUser = await this.userModel.create({
         username: username,
         email: email,
         name: name,
         password: hashedPassword,
       });
+      const userObject = newUser.toObject();
+      delete userObject.password;
+      this.logger.log(`User with email: ${email} registered successfully`);
+      return {
+        data: userObject,
+        message: 'User registered successfully',
+        success: true,
+      };
     } catch (error: unknown) {
       console.error(error);
 
@@ -71,25 +69,38 @@ export class UsersService {
     }
   }
 
-  async login(userLogin: LoginUserDto): Promise<UserDocument> {
+  async login(
+    userLogin: LoginUserDto,
+  ): Promise<{ data: UserDocument; message: string; success: boolean }> {
     const { username, password } = userLogin;
-    if (!username || !password) {
-      throw new BadRequestException('Kindly input your required details ');
-    }
+
     try {
-      const user = await this.userModel.findOne({ username }).exec();
+      const user = await this.userModel
+        .findOne({ username })
+        .select('+password')
+        .exec();
       if (!user) {
         throw new BadRequestException(
           `User with  this username: ${username} does not exist`,
         );
       }
+      if (!user.password) {
+        throw new InternalServerErrorException(`User password is not set`);
+      }
       const isPasswordMatch = await bcrypt.compare(password, user.password);
       if (!isPasswordMatch) {
-        throw new ForbiddenException(`Password is wrong`);
+        throw new ForbiddenException('Incorrect password');
       }
-      user.password = password;
 
-      return user;
+      const userObject = user.toObject();
+      delete userObject.password;
+      this.logger.log(`User with username: ${username} logged in successfully`);
+
+      return {
+        data: userObject,
+        message: 'Login successful',
+        success: true,
+      };
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException(`Unable to log in user`);
@@ -125,7 +136,7 @@ export class UsersService {
       }
       const updatedPlain = updated.toObject();
       this.logger.debug(`Cache miss → ${cacheKey}`);
-      // Cache the updated user data with a TTL of 3600 seconds
+
       await this.redis.set(
         cacheKey,
         JSON.stringify(updatedPlain),
@@ -134,7 +145,7 @@ export class UsersService {
       );
       this.logger.debug(`User with id ${id} cached successfully`);
       this.logger.log(`Updated user with id ${id} successfully`);
-      updated.password = 'hidden'; // Hide password in response
+      updated.password = 'hidden';
       this.logger.log(`User with id ${id} successfully updated 😍`);
       return updated;
     } catch (error) {
@@ -172,7 +183,6 @@ export class UsersService {
       const userPlain = user.toObject();
 
       this.logger.debug(`Cache miss → ${cacheKey}`);
-      // Cache the user data with a TTL of 3600 seconds
 
       await this.redis.set(
         cacheKey,

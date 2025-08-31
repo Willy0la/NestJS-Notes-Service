@@ -5,7 +5,7 @@ import { Document } from 'mongoose';
 export class UserModel {
   @Prop({ unique: true, required: true }) username: string;
   @Prop({ unique: true, required: true }) email: string;
-  @Prop({ required: true }) password: string;
+  @Prop({ required: true, select: false }) password?: string;
 }
 
 export type UserDocument = UserModel & Document;

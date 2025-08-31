@@ -64,7 +64,6 @@ export class NotesService {
       throw new BadRequestException('Invalid ID');
     }
 
-    // Clear cache before update (optional)
     const cacheKey = generateNoteKey(id);
     await this.redis.del(cacheKey);
 
@@ -81,7 +80,6 @@ export class NotesService {
 
     const response = { data: updatedNote.toObject(), message: 'Note updated' };
 
-    // Cache the updated note
     await this.redis.set(
       cacheKey,
       JSON.stringify(response),
@@ -129,7 +127,7 @@ export class NotesService {
 
       const notePlain = note.toObject();
       this.logger.debug(`Cache miss → ${cacheKey}`);
-      // Cache the note data with a TTL of 3600 seconds
+
       await this.redis.set(
         cacheKey,
         JSON.stringify({
