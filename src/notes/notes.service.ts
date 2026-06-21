@@ -41,7 +41,7 @@ export class NotesService {
       });
 
       if (findTitle) {
-        throw new ImATeapotException('the title name already exist 😂😂 ');
+        throw new ImATeapotException('the title name already exist  ');
       }
 
       const note = await this.noteModel.create({
@@ -50,11 +50,11 @@ export class NotesService {
         userId: new mongoose.Types.ObjectId(userId),
       });
 
-      return { data: note, message: 'Note successfully created 😍' };
+      return { data: note, message: 'Note successfully created ' };
     } catch (error) {
-      this.logger.warn('Unable to create note, try again😉', error);
+      this.logger.warn('Unable to create note, try again', error);
       throw new InternalServerErrorException(
-        'Unable to create note, try again😉',
+        'Unable to create note, try again',
       );
     }
   }
@@ -93,11 +93,11 @@ export class NotesService {
   async getAllNotes(): Promise<{ data: NoteDocument[]; message: string }> {
     try {
       const note = await this.noteModel.find();
-      return { data: note, message: 'Fetched all notes successfully 😍' };
+      return { data: note, message: 'Fetched all notes successfully ' };
     } catch (error) {
-      this.logger.warn('Unable to create note, try again😉', error);
+      this.logger.warn('Unable to create note, try again', error);
       throw new InternalServerErrorException(
-        'Unable to create note, try again😉',
+        'Unable to create note, try again',
       );
     }
   }
@@ -132,18 +132,18 @@ export class NotesService {
         cacheKey,
         JSON.stringify({
           data: notePlain,
-          message: 'Fetched note successfully 😍',
+          message: 'Fetched note successfully ',
         }),
         'EX',
         CACHE_TTL_NOTES,
       );
       this.logger.debug(`Note with id ${id} cached successfully`);
-      this.logger.log(`Fetched note with id ${id} successfully 😍  `);
-      return { data: note, message: 'Fetched note successfully 😍' };
+      this.logger.log(`Fetched note with id ${id} successfully   `);
+      return { data: note, message: 'Fetched note successfully' };
     } catch (error) {
-      this.logger.warn('Unable to get your note, try again😉', error);
+      this.logger.warn('Unable to get your note, try again', error);
       throw new InternalServerErrorException(
-        'Unable to get your note, try again😉',
+        'Unable to get your note, try again',
       );
     }
   }
@@ -161,11 +161,11 @@ export class NotesService {
         throw new NotFoundException('User Not found');
       }
 
-      return { message: 'Note deleted successfully 😍', data: note };
+      return { message: 'Note deleted successfully ', data: note };
     } catch (error) {
-      this.logger.warn('Unable to delete your note, try again😉', error);
+      this.logger.warn('Unable to delete your note, try again', error);
       throw new InternalServerErrorException(
-        'Unable to delete your note, try again😉',
+        'Unable to delete your note, try again',
       );
     }
   }
