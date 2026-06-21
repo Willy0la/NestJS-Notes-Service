@@ -41,7 +41,7 @@ export class NotesService {
       });
 
       if (findTitle) {
-        throw new ImATeapotException('the title name already exist  ');
+        throw new BadRequestException('the title name already exist  ');
       }
 
       const note = await this.noteModel.create({
