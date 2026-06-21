@@ -9,13 +9,11 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const connection = app.get<Connection>(getConnectionToken());
   connection.once('connected', () => {
-    console.log('MongoDB connection established successfully');
+ 
   });
   const port = config.get<number>('PORT', 2398);
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
-
-  console.log('process.env.DB:', process.env.DB);
-  console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
+ 
+ 
 }
 void bootstrap();
