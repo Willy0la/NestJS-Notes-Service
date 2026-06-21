@@ -146,7 +146,7 @@ export class UsersService {
       this.logger.debug(`User with id ${id} cached successfully`);
       this.logger.log(`Updated user with id ${id} successfully`);
       updated.password = 'hidden';
-      this.logger.log(`User with id ${id} successfully updated 😍`);
+      this.logger.log(`User with id ${id} successfully updated `);
       return updated;
     } catch (error) {
       console.error(error);
